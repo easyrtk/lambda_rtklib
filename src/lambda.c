@@ -283,7 +283,7 @@ static void reduction(int n, double *L, double *D, double *Z)
 static int search(int n, int m, const double *L, const double *D, const double *zs, double *zn, double *s)
 {
     int i,j,k,c,nn=0,imax=0;
-    double newdist,maxdist=1E99,y;
+    double newdist,maxdist=1E99,y,bestdist[2]={0};
     double *S=zeros(n,n),*dist=mat(n,1),*zb=mat(n,1),*z=mat(n,1),*step=mat(n,1);
     
     k=n-1; dist[k]=0.0;
@@ -306,6 +306,8 @@ static int search(int n, int m, const double *L, const double *D, const double *
             }
             /* Case 2: store the found candidate and try next valid integer */
             else {
+                if (bestdist[0]==0.0||newdist<bestdist[0]) bestdist[0]=newdist;
+                if (newdist>bestdist[0]&&(bestdist[1]==0.0||newdist<bestdist[1])) bestdist[1]=newdist;
                 if (nn<m) {  /* store the first m initial points */
                     if (nn==0||newdist>s[imax]) imax=nn;
                     for (i=0;i<n;i++) zn[i+nn*n]=z[i];
@@ -319,6 +321,7 @@ static int search(int n, int m, const double *L, const double *D, const double *
                     }
                     maxdist=s[imax];
                 }
+                if (bestdist[1]>0.0) maxdist=max(bestdist[1],3.0*bestdist[0]);
                 z[0]+=step[0]; /* next valid integer */
                 y=zb[0]-z[0];
                 step[0]=-step[0]-SGN(step[0]);
@@ -336,14 +339,18 @@ static int search(int n, int m, const double *L, const double *D, const double *
         }
     }
     for (i=0;i<m-1;i++) { /* sort by s */
+        if (s[i]==0.0) continue;
         for (j=i+1;j<m;j++) {
+            if (s[j]==0.0) continue;
             if (s[i]<s[j]) continue;
             SWAP(s[i],s[j]);
             for (k=0;k<n;k++) SWAP(zn[k+i*n],zn[k+j*n]);
         }
     }
     free(S); free(dist); free(zb); free(z); free(step);
-    
+#if defined(_WIN32) && defined(_DEBUG)
+    printf("%3i,%3i,%6i,AMBRES\n", n, m, c);
+#endif  
     if (c>=LOOPMAX) {
         fprintf(stderr,"%s : search loop count overflow\n",__FILE__);
         return -2;
